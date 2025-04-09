@@ -1,0 +1,31 @@
+# Dépendances
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build et distribution
+dist/
+build/
+*.tsbuildinfo
+
+# Fichiers d'environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Données générées
+data/
+
+# Logs
+logs/
+*.log
+
+# IDEs et éditeurs
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store 

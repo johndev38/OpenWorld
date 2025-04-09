@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visualisation des PNJ</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1, h2 {
+      color: #333;
+      text-align: center;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .map {
+      width: 100%;
+      height: 500px;
+      background-color: #e8f5e9;
+      border: 1px solid #ccc;
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .pnj {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: #3F51B5;
+      transform: translate(-50%, -50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      z-index: 10;
+    }
+    .batiment {
+      position: absolute;
+      background-color: #795548;
+      color: white;
+      padding: 5px;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      font-size: 10px;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button.stop {
+      background-color: #f44336;
+    }
+    .info-panel {
+      background-color: white;
+      padding: 15px;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Visualisation des PNJ</h1>
+    
+    <div class="controls">
+      <button id="start-btn">Démarrer Simulation</button>
+      <button id="stop-btn" class="stop">Arrêter Simulation</button>
+    </div>
+    
+    <div class="info-panel">
+      <h2>Informations</h2>
+      <div id="info">Chargement des informations...</div>
+    </div>
+    
+    <h2>Carte du Monde</h2>
+    <div class="map" id="map">
+      <!-- La carte sera générée ici dynamiquement -->
+    </div>
+    
+    <div class="info-panel">
+      <h2>Liste des PNJ</h2>
+      <div id="pnj-list">Chargement des PNJ...</div>
+    </div>
+  </div>
+
+  <script>
+    // Constantes
+    const API_URL = '/api';
+    const MAP_SCALE = 10; // 1 unité de la carte = 10 pixels
+    
+    // Variables globales
+    let pnjs = [];
+    let batiments = [];
+    let updateInterval;
+    
+    // Initialisation
+    window.addEventListener('DOMContentLoaded', init);
+    
+    async function init() {
+      try {
+        // Charger les données
+        await Promise.all([
+          loadPNJs(),
+          loadBatiments()
+        ]);
+        
+        // Configurer les boutons
+        document.getElementById('start-btn').addEventListener('click', startSimulation);
+        document.getElementById('stop-btn').addEventListener('click', stopSimulation);
+        
+        // Rafraîchir automatiquement
+        startAutoRefresh();
+        
+        // Afficher un message
+        displayInfo('Visualisation initialisée avec succès!');
+      } catch (error) {
+        console.error('Erreur d\'initialisation:', error);
+        displayInfo('Erreur d\'initialisation: ' + error.message);
+      }
+    }
+    
+    async function loadPNJs() {
+      try {
+        const response = await fetch(`${API_URL}/pnjs`);
+        if (!response.ok) throw new Error('Erreur lors du chargement des PNJ: ' + response.status);
+        
+        pnjs = await response.json();
+        renderPNJs();
+        updatePNJList();
+      } catch (error) {
+        console.error('Erreur lors du chargement des PNJ:', error);
+        displayInfo('Erreur: ' + error.message);
+      }
+    }
+    
+    async function loadBatiments() {
+      try {
+        const response = await fetch(`${API_URL}/batiments`);
+        if (!response.ok) throw new Error('Erreur lors du chargement des bâtiments: ' + response.status);
+        
+        batiments = await response.json();
+        renderBatiments();
+      } catch (error) {
+        console.error('Erreur lors du chargement des bâtiments:', error);
+        displayInfo('Erreur: ' + error.message);
+      }
+    }
+    
+    function renderPNJs() {
+      // Supprimer les PNJ existants
+      document.querySelectorAll('.pnj').forEach(el => el.remove());
+      
+      // Ajouter les nouveaux PNJ
+      const map = document.getElementById('map');
+      
+      pnjs.forEach(pnj => {
+        const pnjElement = document.createElement('div');
+        pnjElement.classList.add('pnj');
+        pnjElement.style.left = `${(pnj.localisation.position.x + 25) * MAP_SCALE}px`;
+        pnjElement.style.top = `${(pnj.localisation.position.y + 25) * MAP_SCALE}px`;
+        pnjElement.textContent = pnj.nom.charAt(0);
+        pnjElement.title = `${pnj.nom} (${pnj.profession}) - ${pnj.etatActuel.activite}`;
+        
+        // Couleur selon l'activité
+        let color;
+        switch (pnj.etatActuel.activite) {
+          case 'repos': color = '#3F51B5'; break; // Bleu
+          case 'travail': color = '#F44336'; break; // Rouge
+          case 'repas': color = '#FF9800'; break; // Orange
+          case 'social': color = '#9C27B0'; break; // Violet
+          case 'loisir': color = '#4CAF50'; break; // Vert
+          default: color = '#607D8B'; break; // Gris
+        }
+        pnjElement.style.backgroundColor = color;
+        
+        map.appendChild(pnjElement);
+      });
+    }
+    
+    function renderBatiments() {
+      // Supprimer les bâtiments existants
+      document.querySelectorAll('.batiment').forEach(el => el.remove());
+      
+      // Ajouter les nouveaux bâtiments
+      const map = document.getElementById('map');
+      
+      batiments.forEach(batiment => {
+        const batimentElement = document.createElement('div');
+        batimentElement.classList.add('batiment');
+        batimentElement.style.left = `${(batiment.position.x + 25) * MAP_SCALE}px`;
+        batimentElement.style.top = `${(batiment.position.y + 25) * MAP_SCALE}px`;
+        
+        // Dimensions du bâtiment
+        if (batiment.dimensions) {
+          batimentElement.style.width = `${batiment.dimensions.largeur * MAP_SCALE}px`;
+          batimentElement.style.height = `${batiment.dimensions.hauteur * MAP_SCALE}px`;
+        } else {
+          batimentElement.style.width = '30px';
+          batimentElement.style.height = '30px';
+        }
+        
+        batimentElement.textContent = batiment.nom;
+        batimentElement.title = `${batiment.nom} (${batiment.type})`;
+        
+        map.appendChild(batimentElement);
+      });
+    }
+    
+    function updatePNJList() {
+      const pnjListElement = document.getElementById('pnj-list');
+      
+      if (pnjs.length === 0) {
+        pnjListElement.innerHTML = '<p>Aucun PNJ disponible</p>';
+        return;
+      }
+      
+      let html = '<ul>';
+      pnjs.forEach(pnj => {
+        html += `
+          <li>
+            <strong>${pnj.nom}</strong> - ${pnj.profession}<br>
+            Activité: ${pnj.etatActuel.activite} | 
+            Faim: ${pnj.besoins.faim.toFixed(0)}% | 
+            Énergie: ${pnj.besoins.energie.toFixed(0)}%
+          </li>
+        `;
+      });
+      html += '</ul>';
+      
+      pnjListElement.innerHTML = html;
+    }
+    
+    function startAutoRefresh() {
+      // Arrêter l'intervalle existant si nécessaire
+      if (updateInterval) clearInterval(updateInterval);
+      
+      // Rafraîchir les données toutes les 2 secondes
+      updateInterval = setInterval(async () => {
+        await loadPNJs();
+      }, 2000);
+    }
+    
+    function displayInfo(message) {
+      document.getElementById('info').textContent = message;
+    }
+    
+    async function startSimulation() {
+      try {
+        const response = await fetch(`${API_URL}/simulation/demarrer`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Erreur lors du démarrage: ' + response.status);
+        
+        const result = await response.json();
+        displayInfo('Simulation démarrée: ' + result.message);
+      } catch (error) {
+        console.error('Erreur lors du démarrage de la simulation:', error);
+        displayInfo('Erreur: ' + error.message);
+      }
+    }
+    
+    async function stopSimulation() {
+      try {
+        const response = await fetch(`${API_URL}/simulation/arreter`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Erreur lors de l\'arrêt: ' + response.status);
+        
+        const result = await response.json();
+        displayInfo('Simulation arrêtée: ' + result.message);
+      } catch (error) {
+        console.error('Erreur lors de l\'arrêt de la simulation:', error);
+        displayInfo('Erreur: ' + error.message);
+      }
+    }
+  </script>
+</body>
+</html> 
