@@ -11,8 +11,7 @@ import {
   etatSimulation, 
   getPNJs, 
   getPNJById, 
-  ajouterPNJ, 
-  retirerPNJ 
+  simulation
 } from './simulation';
 import { BatimentService } from './services/BatimentService';
 import { DeplacementService } from './services/DeplacementService';
@@ -126,8 +125,8 @@ router.post('/api/pnjs', async (req: Request<{}, {}, CreatePNJRequest>, res: Res
       nouveauPNJ.background = await genererBackground(nouveauPNJ, { monde, epoque });
     }
     
-    // Ajouter le PNJ à la simulation
-    ajouterPNJ(nouveauPNJ);
+    // Ajouter le PNJ à la simulation via l'instance
+    simulation.ajouterPNJ(nouveauPNJ);
     
     res.status(201).json(nouveauPNJ);
   } catch (error) {
@@ -139,7 +138,8 @@ router.post('/api/pnjs', async (req: Request<{}, {}, CreatePNJRequest>, res: Res
 // Route pour supprimer un PNJ
 router.delete('/api/pnjs/:id', (req: Request, res: Response): void => {
   const id = req.params.id;
-  const supprime = retirerPNJ(id);
+  // Retirer le PNJ via l'instance
+  const supprime = simulation.retirerPNJ(id);
   
   if (supprime) {
     res.json({ message: `PNJ avec ID ${id} supprimé avec succès` });
@@ -264,7 +264,7 @@ export function demarrerServeur(): void {
     console.log(`=================================================`);
     
     // Initialiser la simulation au démarrage
-    const simulation = Simulation.getInstance();
-    simulation.setPNJs(getPNJs());
+    const simulationInstance = Simulation.getInstance(); // Assure l'initialisation
+    // simulationInstance.setPNJs(getPNJs()); // Plus nécessaire ici si chargés dans le constructeur
   });
 } 
