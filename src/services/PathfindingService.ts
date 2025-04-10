@@ -5,7 +5,7 @@ export class PathfindingService {
   private static instance: PathfindingService;
   private easystar: EasyStar.js;
   private grid: number[][] = [];
-  private gridSize = { width: 50, height: 50 }; // Taille par défaut de la grille
+  private gridSize = { width: 100, height: 100 }; // Taille par défaut de la grille
 
   private constructor() {
     this.easystar = new EasyStar.js();
@@ -58,6 +58,13 @@ export class PathfindingService {
    */
   private coordonneesValides(x: number, y: number): boolean {
     return x >= 0 && x < this.gridSize.width && y >= 0 && y < this.gridSize.height;
+  }
+
+  /**
+   * Vérifie si une case est accessible (valide et pas un obstacle)
+   */
+  public estAccessible(x: number, y: number): boolean {
+    return this.coordonneesValides(x, y) && this.grid[y][x] === 0;
   }
 
   /**

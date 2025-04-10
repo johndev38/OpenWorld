@@ -1,7 +1,8 @@
-import { PNJ, Batiment, TypeBatiment, Service } from '../types';
+import { PNJ, Batiment, TypeBatiment, Service, Position } from '../types';
 import { DeplacementService } from './DeplacementService';
 import { BatimentService } from './BatimentService';
 import EventEmitter from 'events';
+import { PathfindingService } from './PathfindingService';
 
 /**
  * Service qui gère les décisions des PNJ en fonction de leurs besoins
@@ -10,6 +11,7 @@ export class PNJDecisionService extends EventEmitter {
   private static instance: PNJDecisionService;
   private deplacementService: DeplacementService;
   private batimentService: BatimentService;
+  private pathfindingService: PathfindingService;
   
   // Seuils pour les différents besoins (en dessous, le besoin devient prioritaire)
   private seuils = {
@@ -25,6 +27,7 @@ export class PNJDecisionService extends EventEmitter {
     super();
     this.deplacementService = DeplacementService.getInstance();
     this.batimentService = BatimentService.getInstance();
+    this.pathfindingService = PathfindingService.getInstance();
   }
 
   public static getInstance(): PNJDecisionService {
@@ -37,10 +40,10 @@ export class PNJDecisionService extends EventEmitter {
   /**
    * Évalue les besoins d'un PNJ et prend une décision sur sa prochaine action
    */
-  public evaluerBesoinsEtDecider(pnj: PNJ): Promise<boolean> {
+  public async evaluerBesoinsEtDecider(pnj: PNJ): Promise<boolean> {
     // Si le PNJ est déjà en déplacement, ne pas interférer
     if (this.deplacementService.estEnDeplacement(pnj.id)) {
-      return Promise.resolve(false);
+      return false;
     }
 
     console.log(`🤔 DÉCISION: Évaluation des besoins de ${pnj.nom} - Faim: ${pnj.besoins.faim}, Soif: ${pnj.besoins.soif}, Fatigue: ${pnj.besoins.fatigue}, Social: ${pnj.besoins.social}, Santé: ${pnj.sante}`);
@@ -50,7 +53,7 @@ export class PNJDecisionService extends EventEmitter {
     
     if (!besoinUrgent) {
       console.log(`😌 DÉCISION: ${pnj.nom} n'a pas de besoin urgent, il continue son activité actuelle (${pnj.etatActuel.activite})`);
-      return Promise.resolve(false);
+      return false;
     }
 
     console.log(`⚠️ DÉCISION: ${pnj.nom} a un besoin urgent: ${besoinUrgent.type} (${besoinUrgent.valeur})`);
@@ -60,18 +63,26 @@ export class PNJDecisionService extends EventEmitter {
     
     if (!batiment) {
       console.log(`❌ DÉCISION: Aucun bâtiment disponible pour répondre au besoin ${besoinUrgent.type} de ${pnj.nom}`);
-      return Promise.resolve(false);
+      return false;
     }
 
     console.log(`🏢 DÉCISION: ${pnj.nom} a choisi le bâtiment ${batiment.nom} (${batiment.id}) en [${batiment.position.x}, ${batiment.position.y}] pour son besoin de ${besoinUrgent.type}`);
 
+    // Trouver une destination adjacente libre
+    const destination = this.trouverDestinationAdjacenteLibre(batiment.position);
+    if (!destination) {
+      console.log(`❌ DÉCISION: Aucune case adjacente libre trouvée pour le bâtiment ${batiment.nom}`);
+      return false;
+    }
+    console.log(`🎯 DÉCISION: Destination ajustée à [${destination.x}, ${destination.y}] (adjacent à ${batiment.nom})`);
+
     // Mettre à jour l'état du PNJ en fonction du besoin
     this.mettreAJourEtatPNJ(pnj, besoinUrgent.type);
     
-    // Déplacer le PNJ vers le bâtiment
-    console.log(`✅ DÉCISION: ${pnj.nom} se dirige vers ${batiment.nom} pour satisfaire son besoin de ${besoinUrgent.type}`);
+    // Déplacer le PNJ vers la destination adjacente
+    console.log(`✅ DÉCISION: ${pnj.nom} se dirige vers les environs de ${batiment.nom} pour satisfaire son besoin de ${besoinUrgent.type}`);
     
-    return this.deplacementService.deplacerVers(pnj, batiment.position, batiment.id);
+    return this.deplacementService.deplacerVers(pnj, destination, batiment.id);
   }
 
   /**
@@ -175,10 +186,33 @@ export class PNJDecisionService extends EventEmitter {
   /**
    * Calcule la distance euclidienne entre deux positions
    */
-  private calculerDistance(pos1: { x: number; y: number }, pos2: { x: number; y: number }): number {
+  private calculerDistance(pos1: Position, pos2: Position): number {
     const dx = pos2.x - pos1.x;
     const dy = pos2.y - pos1.y;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * Trouve une case adjacente libre à une position donnée.
+   * Vérifie les 8 voisins.
+   */
+  private trouverDestinationAdjacenteLibre(positionCible: Position): Position | null {
+    const x = Math.floor(positionCible.x);
+    const y = Math.floor(positionCible.y);
+    const voisins = [
+      { x: x - 1, y: y }, { x: x + 1, y: y }, { x: x, y: y - 1 }, { x: x, y: y + 1 },
+      { x: x - 1, y: y - 1 }, { x: x + 1, y: y - 1 }, { x: x - 1, y: y + 1 }, { x: x + 1, y: y + 1 }
+    ];
+
+    for (const voisin of voisins) {
+      // Vérifier si la case voisine est valide et libre sur la grille de pathfinding
+      if (this.pathfindingService.estAccessible(voisin.x, voisin.y)) {
+        return voisin; // Retourner la première case libre trouvée
+      }
+    }
+
+    console.warn(`Aucune case adjacente libre trouvée autour de [${x}, ${y}]`);
+    return null; // Aucune case adjacente libre trouvée
   }
 
   /**
