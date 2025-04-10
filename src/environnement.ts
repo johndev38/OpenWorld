@@ -1,4 +1,4 @@
-import { Environnement, Batiment, TypeBatiment, PNJ, EtatPNJ, Service, Position } from './types';
+import { Environnement, Batiment, TypeBatiment, PNJ, EtatPNJ, Service, Position, ElementDecor, TypeElementDecor } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -11,7 +11,8 @@ let environnement: Environnement = {
   minute: 0,
   jour: 1,
   meteo: 'ensoleillé',
-  batiments: []
+  batiments: [],
+  elementsDecor: [] // Initialisation avec un tableau vide
 };
 
 // Fonction pour charger l'environnement depuis le fichier
@@ -19,7 +20,14 @@ export function chargerEnvironnement(): Environnement {
   if (fs.existsSync(ENV_FILE_PATH)) {
     try {
       const data = fs.readFileSync(ENV_FILE_PATH, 'utf8');
-      environnement = JSON.parse(data);
+      const environnementCharge = JSON.parse(data);
+      
+      // S'assurer que la propriété elementsDecor existe
+      if (!environnementCharge.elementsDecor) {
+        environnementCharge.elementsDecor = [];
+      }
+      
+      environnement = environnementCharge;
       console.log('Environnement chargé depuis', ENV_FILE_PATH);
       return environnement;
     } catch (error) {
@@ -412,4 +420,139 @@ export function initialiserEnvironnement(): void {
     sauvegarderEnvironnement();
     console.log('Environnement initialisé avec les bâtiments par défaut');
   }
+  
+  // Si elementsDecor n'existe pas ou est vide, initialiser les éléments de décor
+  if (!environnement.elementsDecor || environnement.elementsDecor.length === 0) {
+    // S'assurer que le tableau existe
+    if (!environnement.elementsDecor) {
+      environnement.elementsDecor = [];
+    }
+    
+    // Générer des arbres autour de la carte
+    genererArbresAleatoires(20, { x: -30, y: -30 }, { x: 30, y: 30 });
+    
+    // Ajouter quelques arbres dans des zones spécifiques
+    // Petit bosquet près de la bibliothèque
+    ajouterArbre({ x: 7, y: -8 }, 1.5, true);
+    ajouterArbre({ x: 9, y: -6 }, 1.2, true);
+    ajouterArbre({ x: 5, y: -7 }, 1.8, true);
+    
+    // Arbres décoratifs près de la taverne
+    ajouterArbre({ x: 12, y: 12 }, 1.0, false);
+    ajouterArbre({ x: 8, y: 9 }, 1.3, false);
+    
+    // Buissons
+    ajouterElementDecor({
+      id: `buisson_1`,
+      type: 'buisson',
+      position: { x: -5, y: 5 },
+      taille: 0.7,
+      bloquant: false
+    });
+    
+    ajouterElementDecor({
+      id: `buisson_2`,
+      type: 'buisson',
+      position: { x: 5, y: 5 },
+      taille: 0.8,
+      bloquant: false
+    });
+    
+    // Fontaine au centre
+    ajouterElementDecor({
+      id: 'fontaine_centrale',
+      type: 'fontaine',
+      position: { x: 0, y: 0 },
+      taille: 1.5,
+      bloquant: true
+    });
+    
+    console.log('Éléments de décor ajoutés à l\'environnement');
+    sauvegarderEnvironnement();
+  }
+}
+
+// Ajouter un élément de décor à l'environnement
+export function ajouterElementDecor(element: ElementDecor): ElementDecor {
+  // Vérifier si l'ID existe déjà
+  const elementExistant = environnement.elementsDecor.find(e => e.id === element.id);
+  if (elementExistant) {
+    console.log(`Élément de décor avec ID ${element.id} existe déjà, mise à jour.`);
+    // Mettre à jour l'élément existant
+    Object.assign(elementExistant, element);
+    sauvegarderEnvironnement();
+    return elementExistant;
+  }
+  
+  // Ajouter le nouvel élément
+  environnement.elementsDecor.push(element);
+  console.log(`Élément de décor ajouté: ${element.type} à la position (${element.position.x}, ${element.position.y})`);
+  sauvegarderEnvironnement();
+  return element;
+}
+
+// Supprimer un élément de décor
+export function supprimerElementDecor(id: string): boolean {
+  const indexElement = environnement.elementsDecor.findIndex(e => e.id === id);
+  if (indexElement === -1) {
+    console.log(`Élément de décor avec ID ${id} non trouvé.`);
+    return false;
+  }
+  
+  environnement.elementsDecor.splice(indexElement, 1);
+  console.log(`Élément de décor avec ID ${id} supprimé.`);
+  sauvegarderEnvironnement();
+  return true;
+}
+
+// Récupérer tous les éléments de décor
+export function getElementsDecor(): ElementDecor[] {
+  return [...environnement.elementsDecor];
+}
+
+// Récupérer les éléments de décor par type
+export function getElementsDecorParType(type: TypeElementDecor): ElementDecor[] {
+  return environnement.elementsDecor.filter(e => e.type === type);
+}
+
+// Récupérer un élément de décor par son ID
+export function getElementDecorById(id: string): ElementDecor | undefined {
+  return environnement.elementsDecor.find(e => e.id === id);
+}
+
+// Ajouter un arbre à une position donnée
+export function ajouterArbre(position: Position, taille: number = 1, bloquant: boolean = true): ElementDecor {
+  const id = `arbre_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  const arbre: ElementDecor = {
+    id,
+    type: 'arbre',
+    position,
+    taille,
+    bloquant
+  };
+  
+  return ajouterElementDecor(arbre);
+}
+
+// Générer plusieurs arbres aléatoirement dans une zone
+export function genererArbresAleatoires(nombre: number, zoneMin: Position, zoneMax: Position): ElementDecor[] {
+  const arbres: ElementDecor[] = [];
+  
+  for (let i = 0; i < nombre; i++) {
+    // Générer des positions aléatoires dans la zone
+    const x = Math.floor(Math.random() * (zoneMax.x - zoneMin.x)) + zoneMin.x;
+    const y = Math.floor(Math.random() * (zoneMax.y - zoneMin.y)) + zoneMin.y;
+    
+    // Variété de tailles (entre 0.8 et 2)
+    const taille = 0.8 + Math.random() * 1.2;
+    
+    // Certains arbres peuvent être non bloquants (10% de chance)
+    const bloquant = Math.random() > 0.1;
+    
+    const arbre = ajouterArbre({ x, y }, taille, bloquant);
+    arbres.push(arbre);
+  }
+  
+  console.log(`${nombre} arbres générés aléatoirement.`);
+  return arbres;
 } 

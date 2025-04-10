@@ -219,6 +219,9 @@ export class PNJDecisionService extends EventEmitter {
    * Met à jour l'état du PNJ en fonction du besoin à satisfaire
    */
   private mettreAJourEtatPNJ(pnj: PNJ, typeBesoin: string): void {
+    // Réinitialiser le dialogue potentiel avant de changer d'activité
+    pnj.etatActuel.dialogue = undefined;
+    
     switch (typeBesoin) {
       case 'faim':
       case 'soif':
@@ -229,12 +232,13 @@ export class PNJDecisionService extends EventEmitter {
         break;
       case 'social':
         pnj.etatActuel.activite = 'social';
+        // Définir un dialogue générique pour l'activité sociale
+        pnj.etatActuel.dialogue = "...discution..."; 
         break;
       case 'divertissement':
         pnj.etatActuel.activite = 'loisir';
         break;
       case 'sante':
-        // On pourrait créer une nouvelle activité "soin" si nécessaire
         pnj.etatActuel.activite = 'repos';
         break;
     }
@@ -259,37 +263,66 @@ export class PNJDecisionService extends EventEmitter {
     }
 
     console.log(`🏢 SATISFACTION: ${pnj.nom} satisfait ses besoins à ${batiment.nom} (${batiment.type}) - Services: [${batiment.services.join(', ')}]`);
-    console.log(`📊 SATISFACTION: Besoins avant - Faim: ${pnj.besoins.faim}, Soif: ${pnj.besoins.soif}, Fatigue: ${pnj.besoins.fatigue}, Social: ${pnj.besoins.social}, Santé: ${pnj.sante}`);
+    console.log(`📊 SATISFACTION: Besoins avant - Faim: ${pnj.besoins.faim.toFixed(0)}, Soif: ${pnj.besoins.soif.toFixed(0)}, Fatigue: ${pnj.besoins.fatigue.toFixed(0)}, Social: ${pnj.besoins.social.toFixed(0)}, Énergie: ${pnj.energie.toFixed(0)}, Santé: ${pnj.sante.toFixed(0)}`);
 
-    // Mettre à jour les besoins en fonction des services du bâtiment
-    if (batiment.services.includes('repas')) {
-      pnj.besoins.faim = Math.min(100, pnj.besoins.faim + 50);
-      console.log(`🍽️ SATISFACTION: ${pnj.nom} s'est restauré à ${batiment.nom}. Faim: ${pnj.besoins.faim}`);
+    // --- Logique spécifique par Type de Bâtiment --- 
+
+    if (batiment.type === 'maison') {
+      // À la maison, on se repose bien et on peut manger un peu
+      pnj.besoins.fatigue = Math.min(100, pnj.besoins.fatigue + 50); // Bon repos
+      pnj.energie = Math.min(100, pnj.energie + 40);
+      pnj.besoins.faim = Math.min(100, pnj.besoins.faim + 25); // Petit encas
+      console.log(`🏠 SATISFACTION (Maison): ${pnj.nom} se repose et mange. Fatigue: ${pnj.besoins.fatigue.toFixed(0)}, Énergie: ${pnj.energie.toFixed(0)}, Faim: ${pnj.besoins.faim.toFixed(0)}`);
     }
     
-    if (batiment.services.includes('boissons')) {
-      pnj.besoins.soif = Math.min(100, pnj.besoins.soif + 60);
-      console.log(`🥤 SATISFACTION: ${pnj.nom} a étanché sa soif à ${batiment.nom}. Soif: ${pnj.besoins.soif}`);
-    }
-    
-    if (batiment.services.includes('repos')) {
-      pnj.besoins.fatigue = Math.min(100, pnj.besoins.fatigue + 40);
-      pnj.energie = Math.min(100, pnj.energie + 30);
-      console.log(`😴 SATISFACTION: ${pnj.nom} s'est reposé à ${batiment.nom}. Fatigue: ${pnj.besoins.fatigue}, Énergie: ${pnj.energie}`);
-    }
-    
-    if (batiment.type === 'taverne' || batiment.type === 'marche') {
+    if (batiment.type === 'taverne') {
+      // À la taverne, on boit, on socialise, on se divertit
+      pnj.besoins.soif = Math.min(100, pnj.besoins.soif + 70); // Étanche bien la soif
       pnj.besoins.social = Math.min(100, pnj.besoins.social + 45);
       pnj.besoins.divertissement = Math.min(100, pnj.besoins.divertissement + 25);
-      console.log(`👥 SATISFACTION: ${pnj.nom} a socialisé à ${batiment.nom}. Social: ${pnj.besoins.social}, Divertissement: ${pnj.besoins.divertissement}`);
+      console.log(`🍻 SATISFACTION (Taverne): ${pnj.nom} boit et socialise. Soif: ${pnj.besoins.soif.toFixed(0)}, Social: ${pnj.besoins.social.toFixed(0)}, Divertissement: ${pnj.besoins.divertissement.toFixed(0)}`);
+    }
+    
+    if (batiment.type === 'marche') {
+       // Au marché, on socialise un peu et on se divertit
+       pnj.besoins.social = Math.min(100, pnj.besoins.social + 20); 
+       pnj.besoins.divertissement = Math.min(100, pnj.besoins.divertissement + 15);
+       console.log(`🧺 SATISFACTION (Marché): ${pnj.nom} socialise. Social: ${pnj.besoins.social.toFixed(0)}, Divertissement: ${pnj.besoins.divertissement.toFixed(0)}`);
+    }
+    
+    if (batiment.type === 'bibliotheque') {
+      // À la bibliothèque, on se cultive (divertissement)
+      pnj.besoins.divertissement = Math.min(100, pnj.besoins.divertissement + 40);
+      console.log(`📚 SATISFACTION (Bibliothèque): ${pnj.nom} s'est cultivé. Divertissement: ${pnj.besoins.divertissement.toFixed(0)}`);
+    }
+
+    // --- Logique basée sur les Services (peut compléter la logique par type) --- 
+    
+    if (batiment.services.includes('repas') && batiment.type !== 'maison') { // Éviter double augmentation si maison
+      pnj.besoins.faim = Math.min(100, pnj.besoins.faim + 50);
+      console.log(`🍽️ SATISFACTION (Service Repas): ${pnj.nom} s'est restauré. Faim: ${pnj.besoins.faim.toFixed(0)}`);
+    }
+    
+    if (batiment.services.includes('boissons') && batiment.type !== 'taverne') { // Éviter double augmentation si taverne
+      pnj.besoins.soif = Math.min(100, pnj.besoins.soif + 60);
+      console.log(`🥤 SATISFACTION (Service Boissons): ${pnj.nom} a étanché sa soif. Soif: ${pnj.besoins.soif.toFixed(0)}`);
+    }
+    
+    if (batiment.services.includes('repos') && batiment.type !== 'maison') { // Éviter double augmentation si maison
+      pnj.besoins.fatigue = Math.min(100, pnj.besoins.fatigue + 40);
+      pnj.energie = Math.min(100, pnj.energie + 30);
+      console.log(`😴 SATISFACTION (Service Repos): ${pnj.nom} s'est reposé. Fatigue: ${pnj.besoins.fatigue.toFixed(0)}, Énergie: ${pnj.energie.toFixed(0)}`);
     }
     
     if (batiment.services.includes('soins')) {
       pnj.sante = Math.min(100, pnj.sante + 70);
-      console.log(`🏥 SATISFACTION: ${pnj.nom} a reçu des soins à ${batiment.nom}. Santé: ${pnj.sante}`);
+      console.log(`🏥 SATISFACTION (Service Soins): ${pnj.nom} a reçu des soins. Santé: ${pnj.sante.toFixed(0)}`);
     }
+    
+    // Note : La logique pour 'social' et 'divertissement' basée sur le type semble plus pertinente 
+    // que de se baser sur un service générique ici, donc on laisse les if par type ci-dessus.
 
-    console.log(`📈 SATISFACTION: Besoins après - Faim: ${pnj.besoins.faim}, Soif: ${pnj.besoins.soif}, Fatigue: ${pnj.besoins.fatigue}, Social: ${pnj.besoins.social}, Santé: ${pnj.sante}`);
+    console.log(`📈 SATISFACTION: Besoins après - Faim: ${pnj.besoins.faim.toFixed(0)}, Soif: ${pnj.besoins.soif.toFixed(0)}, Fatigue: ${pnj.besoins.fatigue.toFixed(0)}, Social: ${pnj.besoins.social.toFixed(0)}, Énergie: ${pnj.energie.toFixed(0)}, Santé: ${pnj.sante.toFixed(0)}`);
 
     // Ajouter une entrée dans l'historique
     pnj.historique.push({

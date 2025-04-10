@@ -124,19 +124,21 @@ router.delete('/api/pnjs/:id', (req, res) => {
 });
 
 // Route pour générer un dialogue entre deux PNJ
-router.post('/api/dialogues', async (req, res) => {
+router.post('/api/dialogues', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const { id1, id2 } = req.body;
     
     if (!id1 || !id2) {
-      return res.status(400).json({ erreur: 'Les IDs des deux PNJ sont requis' });
+      res.status(400).json({ erreur: 'Les IDs des deux PNJ sont requis' });
+      return;
     }
     
     const pnj1 = getPNJById(id1);
     const pnj2 = getPNJById(id2);
     
     if (!pnj1 || !pnj2) {
-      return res.status(404).json({ erreur: 'Un ou plusieurs PNJ non trouvés' });
+      res.status(404).json({ erreur: 'Un ou plusieurs PNJ non trouvés' });
+      return;
     }
     
     const dialogue = await genererDialogue(pnj1, pnj2);
@@ -179,12 +181,13 @@ router.get('/api/suggestions/professions', async (req, res) => {
 });
 
 // Route pour déplacer un PNJ vers une position ou un bâtiment
-router.post('/api/pnjs/:id/deplacer', (req, res) => {
+router.post('/api/pnjs/:id/deplacer', (req: express.Request<{ id: string }>, res: express.Response): void => {
   const id = req.params.id;
   const pnj = getPNJById(id);
   
   if (!pnj) {
-    return res.status(404).json({ erreur: `PNJ avec ID ${id} non trouvé` });
+    res.status(404).json({ erreur: `PNJ avec ID ${id} non trouvé` });
+    return;
   }
   
   const deplacementService = DeplacementService.getInstance();
@@ -195,7 +198,8 @@ router.post('/api/pnjs/:id/deplacer', (req, res) => {
     const y = parseFloat(req.body.y);
     
     deplacementService.deplacerVers(pnj, { x, y });
-    return res.json({ message: `PNJ ${pnj.nom} se déplace vers (${x}, ${y})` });
+    res.json({ message: `PNJ ${pnj.nom} se déplace vers (${x}, ${y})` });
+    return;
   }
   
   // Si la requête contient l'ID d'un bâtiment
@@ -205,14 +209,16 @@ router.post('/api/pnjs/:id/deplacer', (req, res) => {
     const batiment = batimentService.getBatiment(batimentId);
     
     if (!batiment) {
-      return res.status(404).json({ erreur: `Bâtiment avec ID ${batimentId} non trouvé` });
+      res.status(404).json({ erreur: `Bâtiment avec ID ${batimentId} non trouvé` });
+      return;
     }
     
     deplacementService.deplacerVersBatiment(pnj, batimentId);
-    return res.json({ message: `PNJ ${pnj.nom} se déplace vers ${batiment.nom}` });
+    res.json({ message: `PNJ ${pnj.nom} se déplace vers ${batiment.nom}` });
+    return;
   }
   
-  return res.status(400).json({ erreur: "Paramètres manquants: fournir soit les coordonnées (x,y) soit un batimentId" });
+  res.status(400).json({ erreur: "Paramètres manquants: fournir soit les coordonnées (x,y) soit un batimentId" });
 });
 
 // Utiliser le routeur

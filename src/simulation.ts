@@ -160,12 +160,12 @@ export class Simulation extends EventEmitter {
     // Pour chaque PNJ, prendre des décisions en fonction des besoins
     this.pnjs.forEach(pnj => {
       if (!this.deplacementService.estEnDeplacement(pnj.id)) {
-         this.pnjDecisionService.evaluerBesoinsEtDecider(pnj)
-            .then(decisionPrise => {
-              if (decisionPrise) {
+      this.pnjDecisionService.evaluerBesoinsEtDecider(pnj)
+        .then(decisionPrise => {
+          if (decisionPrise) {
                 console.log(`💡 ${pnj.nom} a pris une nouvelle décision due à ses besoins.`);
-              }
-            });
+          }
+        });
       }
     });
     
@@ -177,31 +177,54 @@ export class Simulation extends EventEmitter {
    * Gère l'arrivée d'un PNJ à sa destination
    */
   private handlePNJArrivee(pnj: PNJ, batimentId?: string): void {
-    console.log(`🏁 ARRIVÉE: ${pnj.nom} est arrivé à ${batimentId ? 'bâtiment ' + batimentId : 'sa destination'}.`);
-    if (batimentId) {
-      // Entrer dans le bâtiment
-      console.log(`${pnj.nom} tente d'entrer dans ${batimentId}`);
+    console.log(`🏁 ARRIVÉE: ${pnj.nom} est arrivé à ${batimentId ? 'proximité du bâtiment ' + batimentId : 'sa destination'}.`);
+    
+    // Récupérer le bâtiment cible s'il existe
+    const batiment = batimentId ? this.batimentService.getBatiment(batimentId) : undefined;
+
+    if (batiment) {
+      console.log(`📍 ${pnj.nom} est arrivé près de ${batiment.nom} (${batiment.type})`);
       
-      const batiment = this.batimentService.getBatiment(batimentId);
-      if (batiment && batiment.occupants.length < batiment.capacite) {
-        // Mettre à jour la localisation du PNJ
-        pnj.localisation.batimentId = batiment.id;
-        pnj.localisation.exterieur = false;
-        
-        // Ajouter le PNJ aux occupants du bâtiment
-        this.batimentService.ajouterOccupant(batiment.id, pnj.id);
-        
-        console.log(`✔️ ${pnj.nom} est entré dans ${batiment.nom}`);
-        
-        // Satisfaire les besoins du PNJ
-        this.pnjDecisionService.satisfaireBesoin(pnj, batiment.id);
+      // 1. Essayer de satisfaire le besoin associé au bâtiment
+      // (Même s'il n'entre pas physiquement, on simule l'interaction)
+      this.pnjDecisionService.satisfaireBesoin(pnj, batiment.id);
+
+      // 2. Mettre à jour l'activité du PNJ sur place
+      //    (Basé sur les services/type du bâtiment, similaire à PNJDecisionService.mettreAJourEtatPNJ)
+      //    On pourrait rendre cette logique plus générique ou l'extraire
+      pnj.etatActuel.dialogue = undefined; // Nettoyer d'abord
+      if (batiment.services.includes('repas') || batiment.services.includes('boissons')) {
+        pnj.etatActuel.activite = 'repas';
+      } else if (batiment.services.includes('repos')) {
+        pnj.etatActuel.activite = 'repos';
+      } else if (batiment.type === 'taverne' || batiment.type === 'marche') { // Lieux sociaux
+        pnj.etatActuel.activite = 'social';
+        pnj.etatActuel.dialogue = "...blabla..."; // Mettre le dialogue ici
+      } else if (batiment.type === 'bibliotheque') {
+         pnj.etatActuel.activite = 'loisir';
       } else {
-        console.log(`❌ ${pnj.nom} n'a pas pu entrer dans le bâtiment ${batimentId} (plein ou fermé)`);
-        // Le PNJ pourrait devoir prendre une autre décision ici
-        this.pnjDecisionService.evaluerBesoinsEtDecider(pnj);
+        // Comportement par défaut si pas d'activité spécifique trouvée
+        pnj.etatActuel.activite = 'repos'; 
+      }
+      console.log(`🔄 ${pnj.nom} commence l'activité ${pnj.etatActuel.activite} près de ${batiment.nom}`);
+      
+      // 3. Optionnel : Tenter d'entrer physiquement dans le bâtiment (pour la logique de capacité)
+      if (batiment.occupants.length < batiment.capacite) {
+        // Mettre à jour la localisation pour refléter l'intérieur
+        // Note : Ceci pourrait le faire "sauter" visuellement à la position exacte du bâtiment
+        // pnj.localisation.batimentId = batiment.id;
+        // pnj.localisation.exterieur = false;
+        // pnj.localisation.position = batiment.position; // Le placer au centre ?
+        
+        // Ajouter le PNJ aux occupants du bâtiment (logique interne)
+        this.batimentService.ajouterOccupant(batiment.id, pnj.id);
+        console.log(`✔️ ${pnj.nom} est considéré comme étant dans ${batiment.nom} (logique interne)`);
+      } else {
+        console.log(`❌ ${pnj.nom} ne peut pas entrer dans ${batiment.nom} (plein)`);
       }
     }
     
+    // Émettre l'événement d'arrivée, même si aucun bâtiment n'était ciblé
     this.emit('pnj:arrive', pnj, batimentId);
   }
   
@@ -346,16 +369,14 @@ export function etatSimulation(): { actif: boolean; nbPNJs: number } {
 // --- Fonctions d'accès aux PNJ pour l'API (utilisent l'instance) ---
 
 // Ajouter un PNJ à la simulation
-// Note: Répétition de simulation.ajouterPNJ. À nettoyer.
-// export function ajouterPNJ(pnj: PNJ): void {
-//   simulation.ajouterPNJ(pnj);
-// }
+export function ajouterPNJ(pnj: PNJ): void {
+  simulation.ajouterPNJ(pnj);
+}
 
 // Retirer un PNJ de la simulation
-// Note: Répétition de simulation.retirerPNJ. À nettoyer.
-// export function retirerPNJ(id: string): boolean {
-//   return simulation.retirerPNJ(id);
-// }
+export function retirerPNJ(id: string): boolean {
+  return simulation.retirerPNJ(id);
+}
 
 // Obtenir tous les PNJs actuels
 export function getPNJs(): PNJ[] {
@@ -445,5 +466,5 @@ export async function testerScenarios(): Promise<void> {
   // ... (L'heure influence les besoins via mettreAJourBesoinsPNJ, mais pas directement la décision immédiate)
   
   console.log("\n--- FIN DES SCÉNARIOS DE TEST ---");
-}
+} 
 */ 

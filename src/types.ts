@@ -12,6 +12,15 @@ export type TypeBatiment =
   | 'temple'
   | 'caserne';
 
+// Type d'éléments de décor
+export type TypeElementDecor =
+  | 'arbre'
+  | 'buisson'
+  | 'rocher'
+  | 'fontaine'
+  | 'statue'
+  | 'pont';
+
 // Structure d'un bâtiment dans l'environnement
 export interface Batiment {
   id: string;
@@ -29,6 +38,15 @@ export interface Batiment {
   services: Service[]; // Services disponibles dans le bâtiment
 }
 
+// Structure d'un élément de décor
+export interface ElementDecor {
+  id: string;
+  type: TypeElementDecor;
+  position: Position;
+  taille: number; // Taille relative (1 = normal, 2 = grand, etc.)
+  bloquant: boolean; // Si l'élément bloque le passage
+}
+
 // Structure de l'environnement
 export interface Environnement {
   heure: number; // 0-23
@@ -36,6 +54,7 @@ export interface Environnement {
   jour: number; // 1-30
   meteo: 'ensoleillé' | 'nuageux' | 'pluvieux' | 'orageux' | 'neigeux';
   batiments: Batiment[];
+  elementsDecor: ElementDecor[]; // Éléments de décor comme les arbres, rochers, etc.
 }
 
 // Structure des besoins d'un PNJ
@@ -99,6 +118,7 @@ export interface EtatPNJ {
   activite: Activite;
   destination?: Position;
   batimentCible?: string;
+  dialogue?: string;
 }
 
 export interface HistoriqueEntry {

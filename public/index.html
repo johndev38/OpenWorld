@@ -21,7 +21,7 @@
       padding: 20px;
     }
     .map {
-      width: 100%;
+      width: 500px; /* Largeur fixe pour correspondre à la hauteur */
       height: 500px;
       background-color: #e8f5e9;
       border: 1px solid #ccc;
@@ -51,6 +51,35 @@
       text-align: center;
       font-size: 10px;
     }
+    .element-decor {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 5;
+    }
+    .arbre {
+      color: #2E7D32;
+      font-size: 24px;
+    }
+    .buisson {
+      color: #388E3C;
+      font-size: 18px;
+    }
+    .fontaine {
+      color: #0288D1;
+      font-size: 20px;
+    }
+    .rocher {
+      color: #757575;
+      font-size: 22px;
+    }
+    .statue {
+      color: #9E9E9E;
+      font-size: 20px;
+    }
+    .pont {
+      color: #795548;
+      font-size: 22px;
+    }
     .controls {
       display: flex;
       justify-content: center;
@@ -74,6 +103,31 @@
       border-radius: 4px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
       margin-bottom: 20px;
+    }
+    /* Style pour la bulle de dialogue */
+    .dialogue-bubble {
+      position: absolute;
+      bottom: 100%; /* Placer au-dessus du PNJ */
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: white;
+      padding: 5px 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 10px;
+      white-space: nowrap;
+      z-index: 11;
+      /* Petite flèche vers le bas */
+      &:after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: white transparent transparent transparent;
+      }
     }
   </style>
 </head>
@@ -105,7 +159,7 @@
   <script>
     // Constantes
     const API_URL = '/api';
-    const MAP_SCALE = 10; // 1 unité de la carte = 10 pixels
+    const MAP_SCALE = 5; // Réduire l'échelle pour adapter la grille 100x100
     
     // Variables globales
     let pnjs = [];
@@ -120,7 +174,8 @@
         // Charger les données
         await Promise.all([
           loadPNJs(),
-          loadBatiments()
+          loadBatiments(),
+          loadElementsDecor()
         ]);
         
         // Configurer les boutons
@@ -165,9 +220,22 @@
       }
     }
     
+    async function loadElementsDecor() {
+      try {
+        const response = await fetch(`${API_URL}/elements-decor`);
+        if (!response.ok) throw new Error('Erreur lors du chargement des éléments de décor: ' + response.status);
+        
+        const elementsDecor = await response.json();
+        renderElementsDecor(elementsDecor);
+      } catch (error) {
+        console.error('Erreur lors du chargement des éléments de décor:', error);
+        displayInfo('Erreur: ' + error.message);
+      }
+    }
+    
     function renderPNJs() {
-      // Supprimer les PNJ existants
-      document.querySelectorAll('.pnj').forEach(el => el.remove());
+      // Supprimer les PNJ et bulles existants
+      document.querySelectorAll('.pnj, .dialogue-bubble').forEach(el => el.remove());
       
       // Ajouter les nouveaux PNJ
       const map = document.getElementById('map');
@@ -175,8 +243,8 @@
       pnjs.forEach(pnj => {
         const pnjElement = document.createElement('div');
         pnjElement.classList.add('pnj');
-        pnjElement.style.left = `${(pnj.localisation.position.x + 25) * MAP_SCALE}px`;
-        pnjElement.style.top = `${(pnj.localisation.position.y + 25) * MAP_SCALE}px`;
+        pnjElement.style.left = `${pnj.localisation.position.x * MAP_SCALE}px`;
+        pnjElement.style.top = `${pnj.localisation.position.y * MAP_SCALE}px`;
         pnjElement.textContent = pnj.nom.charAt(0);
         pnjElement.title = `${pnj.nom} (${pnj.profession}) - ${pnj.etatActuel.activite}`;
         
@@ -193,6 +261,18 @@
         pnjElement.style.backgroundColor = color;
         
         map.appendChild(pnjElement);
+        
+        // Ajouter une bulle si le PNJ est en activité sociale et a un dialogue
+        if (pnj.etatActuel.activite === 'social' && pnj.etatActuel.dialogue) {
+          const bubbleElement = document.createElement('div');
+          bubbleElement.classList.add('dialogue-bubble');
+          bubbleElement.textContent = pnj.etatActuel.dialogue;
+          // Positionner la bulle par rapport au PNJ (sans décalage)
+          bubbleElement.style.left = pnjElement.style.left;
+          // Ajuster la position verticale (un peu au-dessus du PNJ)
+          bubbleElement.style.top = `calc(${pnjElement.style.top} - 35px)`; 
+          map.appendChild(bubbleElement);
+        }
       });
     }
     
@@ -206,8 +286,8 @@
       batiments.forEach(batiment => {
         const batimentElement = document.createElement('div');
         batimentElement.classList.add('batiment');
-        batimentElement.style.left = `${(batiment.position.x + 25) * MAP_SCALE}px`;
-        batimentElement.style.top = `${(batiment.position.y + 25) * MAP_SCALE}px`;
+        batimentElement.style.left = `${batiment.position.x * MAP_SCALE}px`;
+        batimentElement.style.top = `${batiment.position.y * MAP_SCALE}px`;
         
         // Dimensions du bâtiment
         if (batiment.dimensions) {
@@ -222,6 +302,51 @@
         batimentElement.title = `${batiment.nom} (${batiment.type})`;
         
         map.appendChild(batimentElement);
+      });
+    }
+    
+    function renderElementsDecor(elementsDecor) {
+      // Supprimer les éléments de décor existants
+      document.querySelectorAll('.element-decor').forEach(el => el.remove());
+      
+      // Ajouter les nouveaux éléments de décor
+      const map = document.getElementById('map');
+      
+      elementsDecor.forEach(element => {
+        const elementDiv = document.createElement('div');
+        elementDiv.classList.add('element-decor', element.type);
+        elementDiv.style.left = `${element.position.x * MAP_SCALE}px`;
+        elementDiv.style.top = `${element.position.y * MAP_SCALE}px`;
+        
+        // Utiliser des émojis ou caractères spéciaux selon le type
+        switch(element.type) {
+          case 'arbre':
+            elementDiv.innerHTML = '🌳';
+            break;
+          case 'buisson':
+            elementDiv.innerHTML = '🌿';
+            break;
+          case 'fontaine':
+            elementDiv.innerHTML = '⛲';
+            break;
+          case 'rocher':
+            elementDiv.innerHTML = '🪨';
+            break;
+          case 'statue':
+            elementDiv.innerHTML = '🗿';
+            break;
+          case 'pont':
+            elementDiv.innerHTML = '🌉';
+            break;
+          default:
+            elementDiv.innerHTML = '❓';
+        }
+        
+        // Ajuster la taille selon la propriété taille de l'élément
+        elementDiv.style.fontSize = `${16 * element.taille}px`;
+        
+        elementDiv.title = `${element.type} (ID: ${element.id})`;
+        map.appendChild(elementDiv);
       });
     }
     
@@ -255,7 +380,10 @@
       
       // Rafraîchir les données toutes les 2 secondes
       updateInterval = setInterval(async () => {
-        await loadPNJs();
+        await Promise.all([
+          loadPNJs(),
+          loadElementsDecor()
+        ]);
       }, 2000);
     }
     
