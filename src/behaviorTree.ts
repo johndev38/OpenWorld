@@ -182,7 +182,8 @@ export class AllerVersBatimentNode implements BehaviorNode {
       'soins': { activite: 'repos' },
       'priere': { activite: 'social' },
       'forge': { activite: 'travail' },
-      'protection': { activite: 'travail' }
+      'protection': { activite: 'travail' },
+      'divertissement': { activite: 'loisir' }
     };
     
     return mapping[service] || { activite: 'repos' };

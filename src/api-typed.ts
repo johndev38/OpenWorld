@@ -1,7 +1,7 @@
-import express from 'express';
+import express, { Request, Response, Router } from 'express';
 import cors from 'cors';
 import * as path from 'path';
-import { PNJ } from './types';
+import { PNJ, Profession, Personnalite } from './types';
 import { creerPNJParDefaut } from './pnj';
 import { genererBackground, genererDialogue, genererNomAleatoire, genererTraitsPersonnalite, analyserEtSuggererProfessions } from './ia';
 import { 
@@ -17,13 +17,38 @@ import {
 import { BatimentService } from './services/BatimentService';
 import { DeplacementService } from './services/DeplacementService';
 
+// Interfaces pour les requêtes typées
+interface CreatePNJRequest {
+  nom?: string;
+  age?: number;
+  profession?: string;
+  personnalite?: string[];
+  genererBackground?: boolean;
+  monde?: string;
+  epoque?: string;
+}
+
+interface DialogueRequest {
+  id1: string;
+  id2: string;
+}
+
+interface DeplacementPositionRequest {
+  x: number;
+  y: number;
+}
+
+interface DeplacementBatimentRequest {
+  batimentId: string;
+}
+
 // Créer l'application Express
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // Créer un routeur pour les routes API
-const router = express.Router();
+const router: Router = express.Router();
 
 // Servir les fichiers statiques depuis le dossier public
 app.use(express.static(path.join(__dirname, '../public')));
@@ -32,12 +57,12 @@ app.use(express.static(path.join(__dirname, '../public')));
 const PORT = process.env.PORT || 3000;
 
 // Route racine qui redirige vers la visualisation
-router.get('/', (req, res) => {
+router.get('/', (req: Request, res: Response): void => {
   res.redirect('/index.html');
 });
 
 // Route pour la documentation de l'API
-router.get('/api', (req, res) => {
+router.get('/api', (req: Request, res: Response): void => {
   res.json({
     message: 'API de gestion des PNJ - OpenWorld',
     version: '1.0.0',
@@ -52,18 +77,18 @@ router.get('/api', (req, res) => {
 });
 
 // Route pour lister tous les PNJ
-router.get('/api/pnjs', (req, res) => {
+router.get('/api/pnjs', (req: Request, res: Response): void => {
   res.json(getPNJs());
 });
 
 // Route pour obtenir tous les bâtiments
-router.get('/api/batiments', (req, res) => {
+router.get('/api/batiments', (req: Request, res: Response): void => {
   const batimentService = BatimentService.getInstance();
   res.json(batimentService.getAllBatiments());
 });
 
 // Route pour obtenir un PNJ par son ID
-router.get('/api/pnjs/:id', (req, res) => {
+router.get('/api/pnjs/:id', (req: Request, res: Response): void => {
   const id = req.params.id;
   const pnj = getPNJById(id);
   
@@ -75,7 +100,7 @@ router.get('/api/pnjs/:id', (req, res) => {
 });
 
 // Route pour créer un nouveau PNJ
-router.post('/api/pnjs', async (req, res) => {
+router.post('/api/pnjs', async (req: Request<{}, {}, CreatePNJRequest>, res: Response): Promise<void> => {
   try {
     // Extraire les informations de base de la requête
     const { nom, age, profession, personnalite, monde, epoque } = req.body;
@@ -92,8 +117,8 @@ router.post('/api/pnjs', async (req, res) => {
     const nouveauPNJ = creerPNJParDefaut(
       pnjInfo.nom,
       pnjInfo.age,
-      pnjInfo.profession,
-      pnjInfo.personnalite
+      (pnjInfo.profession as Profession),
+      (pnjInfo.personnalite as unknown as Personnalite)
     );
     
     // Générer un background via l'IA si demandé
@@ -112,7 +137,7 @@ router.post('/api/pnjs', async (req, res) => {
 });
 
 // Route pour supprimer un PNJ
-router.delete('/api/pnjs/:id', (req, res) => {
+router.delete('/api/pnjs/:id', (req: Request, res: Response): void => {
   const id = req.params.id;
   const supprime = retirerPNJ(id);
   
@@ -124,19 +149,21 @@ router.delete('/api/pnjs/:id', (req, res) => {
 });
 
 // Route pour générer un dialogue entre deux PNJ
-router.post('/api/dialogues', async (req, res) => {
+router.post('/api/dialogues', async (req: Request<{}, {}, DialogueRequest>, res: Response): Promise<void> => {
   try {
     const { id1, id2 } = req.body;
     
     if (!id1 || !id2) {
-      return res.status(400).json({ erreur: 'Les IDs des deux PNJ sont requis' });
+      res.status(400).json({ erreur: 'Les IDs des deux PNJ sont requis' });
+      return;
     }
     
     const pnj1 = getPNJById(id1);
     const pnj2 = getPNJById(id2);
     
     if (!pnj1 || !pnj2) {
-      return res.status(404).json({ erreur: 'Un ou plusieurs PNJ non trouvés' });
+      res.status(404).json({ erreur: 'Un ou plusieurs PNJ non trouvés' });
+      return;
     }
     
     const dialogue = await genererDialogue(pnj1, pnj2);
@@ -148,27 +175,27 @@ router.post('/api/dialogues', async (req, res) => {
 });
 
 // Route pour obtenir l'état de la simulation
-router.get('/api/simulation/etat', (req, res) => {
+router.get('/api/simulation/etat', (req: Request, res: Response): void => {
   res.json(etatSimulation());
 });
 
 // Route pour démarrer la simulation
-router.post('/api/simulation/demarrer', (req, res) => {
+router.post('/api/simulation/demarrer', (req: Request, res: Response): void => {
   demarrerSimulation();
   res.json({ message: 'Simulation démarrée' });
 });
 
 // Route pour arrêter la simulation
-router.post('/api/simulation/arreter', (req, res) => {
+router.post('/api/simulation/arreter', (req: Request, res: Response): void => {
   arreterSimulation();
   res.json({ message: 'Simulation arrêtée' });
 });
 
 // Route pour obtenir des suggestions de professions
-router.get('/api/suggestions/professions', async (req, res) => {
+router.get('/api/suggestions/professions', async (req: Request, res: Response): Promise<void> => {
   try {
-    const monde = req.query.monde as string || 'contemporain';
-    const epoque = req.query.epoque as string || '';
+    const monde = (req.query.monde as string) || 'contemporain';
+    const epoque = (req.query.epoque as string) || '';
     
     const professions = await analyserEtSuggererProfessions({ monde, epoque });
     res.json({ professions });
@@ -179,40 +206,44 @@ router.get('/api/suggestions/professions', async (req, res) => {
 });
 
 // Route pour déplacer un PNJ vers une position ou un bâtiment
-router.post('/api/pnjs/:id/deplacer', (req, res) => {
+router.post('/api/pnjs/:id/deplacer', (req: Request<{id: string}, {}, DeplacementPositionRequest | DeplacementBatimentRequest>, res: Response): void => {
   const id = req.params.id;
   const pnj = getPNJById(id);
   
   if (!pnj) {
-    return res.status(404).json({ erreur: `PNJ avec ID ${id} non trouvé` });
+    res.status(404).json({ erreur: `PNJ avec ID ${id} non trouvé` });
+    return;
   }
   
   const deplacementService = DeplacementService.getInstance();
   
   // Si la requête contient les coordonnées x,y
-  if (req.body.x !== undefined && req.body.y !== undefined) {
-    const x = parseFloat(req.body.x);
-    const y = parseFloat(req.body.y);
+  if ('x' in req.body && 'y' in req.body) {
+    const x = req.body.x;
+    const y = req.body.y;
     
     deplacementService.deplacerVers(pnj, { x, y });
-    return res.json({ message: `PNJ ${pnj.nom} se déplace vers (${x}, ${y})` });
+    res.json({ message: `PNJ ${pnj.nom} se déplace vers (${x}, ${y})` });
+    return;
   }
   
   // Si la requête contient l'ID d'un bâtiment
-  if (req.body.batimentId) {
+  if ('batimentId' in req.body) {
     const batimentId = req.body.batimentId;
     const batimentService = BatimentService.getInstance();
     const batiment = batimentService.getBatiment(batimentId);
     
     if (!batiment) {
-      return res.status(404).json({ erreur: `Bâtiment avec ID ${batimentId} non trouvé` });
+      res.status(404).json({ erreur: `Bâtiment avec ID ${batimentId} non trouvé` });
+      return;
     }
     
     deplacementService.deplacerVersBatiment(pnj, batimentId);
-    return res.json({ message: `PNJ ${pnj.nom} se déplace vers ${batiment.nom}` });
+    res.json({ message: `PNJ ${pnj.nom} se déplace vers ${batiment.nom}` });
+    return;
   }
   
-  return res.status(400).json({ erreur: "Paramètres manquants: fournir soit les coordonnées (x,y) soit un batimentId" });
+  res.status(400).json({ erreur: "Paramètres manquants: fournir soit les coordonnées (x,y) soit un batimentId" });
 });
 
 // Utiliser le routeur

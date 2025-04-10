@@ -1,11 +1,16 @@
 {
   "name": "pnj-ia-poc",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "ts-node src/index.ts",
-    "dev": "nodemon --watch \"src/**/*.ts\" --exec \"ts-node\" src/index.ts"
+    "start": "node dist/index.js",
+    "dev": "nodemon --watch \"src/**/*.ts\" --exec \"ts-node\" src/index.ts",
+    "build": "./compile.sh",
+    "clean": "rimraf dist",
+    "rebuild": "npm run clean && npm run build",
+    "init-world": "node dist/initialisation.js",
+    "watch": "tsc --watch"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +31,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "express": "^5.1.0",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "rimraf": "^5.0.5"
   }
 }

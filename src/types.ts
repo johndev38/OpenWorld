@@ -134,5 +134,6 @@ export type Service =
   | 'soins'
   | 'priere'
   | 'forge'
-  | 'protection';
+  | 'protection'
+  | 'divertissement';
   

@@ -31,14 +31,14 @@ Le projet est organisé en plusieurs modules :
 
 ## Routes API
 
-- **GET /pnjs** : Liste tous les PNJs
-- **GET /pnjs/:id** : Détails d'un PNJ spécifique
-- **POST /pnjs** : Créer un nouveau PNJ
-- **DELETE /pnjs/:id** : Supprimer un PNJ
-- **POST /dialogues** : Générer un dialogue entre deux PNJs
-- **GET /simulation/etat** : État actuel de la simulation
-- **POST /simulation/demarrer** : Démarrer la simulation
-- **POST /simulation/arreter** : Arrêter la simulation
+- **GET /api/pnjs** : Liste tous les PNJs
+- **GET /api/pnjs/:id** : Détails d'un PNJ spécifique
+- **POST /api/pnjs** : Créer un nouveau PNJ
+- **DELETE /api/pnjs/:id** : Supprimer un PNJ
+- **POST /api/dialogues** : Générer un dialogue entre deux PNJs
+- **GET /api/simulation/etat** : État actuel de la simulation
+- **POST /api/simulation/demarrer** : Démarrer la simulation
+- **POST /api/simulation/arreter** : Arrêter la simulation
 
 ## Version avec types explicites (pour Express 5)
 
